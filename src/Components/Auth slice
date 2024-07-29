@@ -1,0 +1,55 @@
+// this slice represents the authenticated user slice like save its token in storage and refresh tokens etc
+
+import { createSlice } from "@reduxjs/toolkit";
+
+const token = localStorage.getItem("user_token") ?? "";
+const refresh_token = localStorage.getItem("refresh_token") ?? "";
+
+const initialState = {
+  user: null,
+  activeProperty: null,
+  userToken: token ? token : null,
+  refreshToken: refresh_token ? refresh_token : null,
+};
+
+export const authSlice = createSlice({
+  name: "authSlice",
+  initialState,
+
+  reducers: {
+    setAuthToken: (state, action) => {
+      state.userToken = action.payload.token;
+      state.refreshToken = action.payload.refresh_token;
+      localStorage.setItem("user_token", action.payload.token);
+      localStorage.setItem("refresh_token", action.payload.refresh_token);
+    },
+
+    setRefreshTokenAction: (state, action) => {
+      state.userToken = action.payload.access_token;
+      localStorage.setItem("user_token", action.payload.access_token);
+    },
+
+    setAuthUser: (state, action) => {
+      state.user = action.payload;
+    },
+    setActiveProperty: (state, action) => {
+      state.activeProperty = action.payload;
+    },
+
+    logoutAction: (state) => {
+      state.user = null;
+      state.userToken = null;
+      localStorage.clear();
+      window.location.href = "/login";
+    },
+  },
+});
+
+export const {
+  setAuthToken,
+  logoutAction,
+  setAuthUser,
+  setActiveProperty,
+  setRefreshTokenAction,
+} = authSlice.actions;
+export default authSlice.reducer;
