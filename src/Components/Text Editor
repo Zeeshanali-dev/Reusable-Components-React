@@ -1,0 +1,899 @@
+// Editor
+import { useEffect, useRef, useState } from "react";
+import "./TextEditor.css";
+
+const TextEditor = ({
+  setContent: editorHandler,
+  defaultContent = "",
+  index = 0,
+}) => {
+  const [content, setContent] = useState(defaultContent);
+  const [wordCount, setWordCount] = useState(0);
+  const [charCount, setCharCount] = useState(0);
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const contentRef = useRef(null);
+  const imageRef = useRef(null);
+  const [tableContextMenu, setTableContextMenu] = useState(null);
+  const [fontSize, setFontSize] = useState("16");
+  const [currentHtmlTag, setCurrentHtmlTag] = useState("p");
+  const fontSizes = [
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "14",
+    "16",
+    "18",
+    "24",
+    "30",
+    "36",
+    "48",
+    "60",
+    "70",
+    "96",
+  ];
+  const [codeBlock, setCodeBlock] = useState(false);
+
+  useEffect(() => {
+    if (!isHtmlMode) {
+      contentRef.current.innerHTML = content;
+    }
+  }, [isHtmlMode]);
+
+  const countRef = useRef(0);
+  useEffect(() => {
+    if (contentRef.current.innerHTML === "") {
+      contentRef.current.innerHTML = defaultContent;
+    }
+  }, [defaultContent]);
+
+  useEffect(() => {
+    const strippedContent = content.replace(/<\/?[^>]+(>|$)/g, " "); // Replace HTML tags with space
+    let words = [];
+    if (strippedContent.trim() !== "") {
+      words = strippedContent.trim().split(/\s+/);
+    }
+    setWordCount(words.length);
+    // Calculate character count (excluding white spaces)
+    setCharCount(strippedContent.replace(/\s/g, "").length);
+    // const startsWithTag = /^<[^>]+>/;
+    // const endsWithTag = /<\/[^>]+>$/;
+    // if (!startsWithTag.test(content) || !endsWithTag.test(content)) {
+    //   contentRef.current.innerHTML = `<p>${content}</p>`;
+    // }
+    editorHandler(content, index);
+  }, [content]);
+
+  useEffect(() => {
+    const tag = currentHtmlTag || "p";
+    document.execCommand("formatBlock", false, `<${tag}>`);
+  }, [currentHtmlTag]);
+  useEffect(() => {
+    const handleCursorMove = () => {
+      const selection = window.getSelection();
+      const isInCodeBlock = selection.anchorNode.parentElement.closest("pre");
+      if (isInCodeBlock) {
+        setCodeBlock(true);
+      } else {
+        setCodeBlock(false);
+      }
+      const activeElement =
+        selection.anchorNode.parentElement.tagName.toLowerCase();
+
+      if (activeElement === "div") {
+        // document.execCommand("formatBlock", false, `<p>`);
+        setCurrentHtmlTag("p");
+      } else if (activeElement !== "tr") {
+        setCurrentHtmlTag(activeElement);
+      }
+    };
+
+    document.addEventListener("selectionchange", handleCursorMove);
+
+    return () => {
+      document.removeEventListener("selectionchange", handleCursorMove);
+    };
+  }, []);
+  const handleFontSizeChange = (e) => {
+    contentRef.current.focus();
+    const size = e.target.value + "px";
+    setFontSize(e.target.value);
+    const selection = window.getSelection();
+    const ancestorNode = selection.anchorNode.parentElement;
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+      if (ancestorNode.nodeName === "SPAN") {
+        // Update font size of the existing span
+        if (ancestorNode.style.fontSize === size) {
+          ancestorNode.style.removeProperty("font-size");
+        } else {
+          ancestorNode.style.fontSize = size;
+        }
+      } else {
+        const range = selection.getRangeAt(0);
+        const span = document.createElement("span");
+        span.style.fontSize = size;
+        range.surroundContents(span);
+        selection.removeAllRanges();
+        range.setStartAfter(span);
+        range.collapse(true);
+        selection.addRange(range);
+      }
+    } else {
+      const spanNodes = contentRef.current.querySelectorAll("span");
+      const lastSpan = spanNodes[spanNodes.length - 1];
+      if (lastSpan && lastSpan.textContent.length === 1) {
+        // Update font size of the empty span
+        lastSpan.style.fontSize = size;
+      } else {
+        const span = document.createElement("span");
+        span.style.fontSize = size;
+        const textNode = document.createTextNode("\u200B");
+        span.appendChild(textNode);
+        contentRef.current.appendChild(span);
+        const range = document.createRange();
+        range.selectNodeContents(span); // Set the range to the span element
+        range.collapse(false); // Place the caret at the end of the span
+        // const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+    setContent(contentRef.current.innerHTML);
+  };
+  const handleInsertImage = (e) => {
+    contentRef.current.focus();
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageData = event.target.result;
+        const imgTag = `<img style="max-height: 300px; height: auto; object-fit: contain;"  src="${imageData}" alt="Uploaded Image" />`;
+        document.execCommand("insertHTML", false, imgTag);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleInsertVideo = () => {
+    contentRef.current.focus();
+    const url = prompt("Enter the URL of the video:");
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      const videoId = url.match(
+        /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+      )?.[1];
+      if (videoId) {
+        const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+        const iframeTag = `<iframe width="560" height="315" src="${embedUrl}" frameborder="0" allowfullscreen></iframe>`;
+        document.execCommand("insertHTML", false, iframeTag);
+      }
+    } else {
+      const videoTag = `<video controls="" name="media"><source src="${url}" type="video/mp4"></video>`;
+      document.execCommand("insertHTML", false, videoTag);
+    }
+  };
+  const addDivider = (isDotted) => {
+    contentRef.current.focus();
+    let dividerTag = `<hr>`;
+    if (isDotted) {
+      dividerTag = `<hr style="border: none; border-top: 1px dotted #999; height: 1px; width: 100%;">`;
+    }
+    document.execCommand("insertHTML", false, dividerTag);
+  };
+  const addCodeBlock = () => {
+    contentRef.current.focus();
+    const codeBlockTag = `<pre style="background-color: #f2f2f2; padding: 10px; border-radius: 5px; white-space: pre-wrap;" contentEditable="true" placeholder="Enter code here..."></pre>`;
+    document.execCommand("insertHTML", false, codeBlockTag);
+  };
+  const toggleQuotationItalic = () => {
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const selectedText = selection.toString();
+    const container = range.commonAncestorContainer;
+
+    // Check if the selected text is already wrapped with <em> tags
+    let isWrapped = false;
+    let currentNode = container;
+
+    while (currentNode && currentNode !== document.body) {
+      if (currentNode.nodeType === 1 && currentNode.tagName === "EM") {
+        const textContent =
+          currentNode.textContent || currentNode.innerText || "";
+        if (textContent === selectedText) {
+          isWrapped = true;
+          break;
+        }
+      }
+      currentNode = currentNode.parentNode;
+    }
+
+    let newText = "";
+
+    if (isWrapped) {
+      // Unwrap <em> tags and quotation marks
+      newText = selectedText.replace(/<em>|<\/em>|"/g, "");
+    } else {
+      // Wrap with <em> tags and add quotation marks
+      newText = `<em>"${selectedText}"</em>`;
+    }
+
+    // Replace the selected text with the modified text
+    document.execCommand("insertHTML", false, newText);
+    document.execCommand("italic", false, "");
+  };
+  const handleContextMenu = (e) => {
+    const targetElement = e.target.closest("td");
+    if (targetElement) {
+      e.preventDefault();
+      const { top, left } = targetElement.getBoundingClientRect();
+      const x = left + window.scrollX;
+      const y = top + window.scrollY + targetElement.offsetHeight;
+      setTableContextMenu({ x, y, targetElement });
+    }
+  };
+  const addLink = () => {
+    const selectedText = window.getSelection().toString();
+    if (selectedText) {
+      const url = prompt("Enter the URL of the link:");
+      if (url) {
+        const linkTag = `<a href="${url}" target="_blank">${selectedText}</a>`;
+        document.execCommand("insertHTML", false, linkTag);
+      }
+    } else {
+      alert("Please select some text to create a link.");
+    }
+  };
+  const handleKeyDown = (e) => {
+    const selection = document.getSelection();
+    const activeElement = selection.anchorNode.parentElement;
+    const isInList = activeElement.closest("ul") || activeElement.closest("ol");
+    const isInCodeBlock = activeElement.closest("pre");
+    if (e.key === "Enter" && !e.ctrlKey && !isInList) {
+      e.preventDefault();
+      if (!isInCodeBlock) {
+        document.execCommand("insertHTML", false, "<br>");
+        document.execCommand("formatBlock", false, "<p>");
+      } else {
+        document.execCommand("insertLineBreak", false, null);
+      }
+    } else if (e.ctrlKey && e.key === "Enter") {
+      e.preventDefault();
+      document.execCommand("insertHTML", false, "<br>");
+    }
+  };
+  const handleInsertTable = () => {
+    contentRef.current.focus();
+    const rows = parseInt(prompt("Enter the number of rows: "));
+    const cols = parseInt(prompt("Enter the number of columns: "));
+    if (rows > 0 && cols > 0) {
+      const table = document.createElement("table");
+      table.style.borderCollapse = "collapse";
+      table.style.width = "100%";
+      for (let i = 0; i < rows; i++) {
+        const row = table.insertRow();
+        for (let j = 0; j < cols; j++) {
+          const cell = row.insertCell();
+          cell.style.border = "1px solid #ddd";
+          cell.style.padding = "5px";
+          // cell.style.minHeight = "20px";
+          cell.style.height = "30px";
+        }
+      }
+      contentRef.current.focus();
+      contentRef.current.ownerDocument.execCommand(
+        "insertHTML",
+        false,
+        table.outerHTML
+      );
+    } else {
+      alert("Please enter valid numbers for rows and columns.");
+    }
+  };
+  const handleAddRowAbove = () => {
+    const { targetElement } = tableContextMenu;
+    const rowIndex = targetElement.parentNode.rowIndex;
+    const table = targetElement.closest("table");
+    const newRow = table.insertRow(rowIndex);
+    const colsCount = targetElement.parentNode.cells.length;
+    for (let i = 0; i < colsCount; i++) {
+      const newCell = newRow.insertCell(i);
+      newCell.style.border = "1px solid #ddd";
+      newCell.style.padding = "5px";
+      newCell.style.minHeight = "20px";
+      newCell.style.height = "10px";
+    }
+    setTableContextMenu(null);
+  };
+
+  const handleAddRowBelow = () => {
+    const { targetElement } = tableContextMenu;
+    const rowIndex = targetElement.parentNode.rowIndex;
+    const table = targetElement.closest("table");
+    const newRow = table.insertRow(rowIndex + 1);
+    const colsCount = targetElement.parentNode.cells.length;
+    for (let i = 0; i < colsCount; i++) {
+      const newCell = newRow.insertCell(i);
+      newCell.style.border = "1px solid #ddd";
+      newCell.style.padding = "5px";
+      newCell.style.minHeight = "20px";
+      newCell.style.height = "10px";
+    }
+    setTableContextMenu(null);
+  };
+
+  const handleAddColumnBefore = () => {
+    const { targetElement } = tableContextMenu;
+    const cellIndex = targetElement.cellIndex;
+    const table = targetElement.closest("table");
+    for (let i = 0; i < table.rows.length; i++) {
+      const newRow = table.rows[i];
+      const newCell = newRow.insertCell(cellIndex);
+      newCell.style.border = "1px solid #ddd";
+      newCell.style.padding = "5px";
+      newCell.style.minHeight = "20px";
+      newCell.style.height = "10px";
+    }
+    setTableContextMenu(null);
+  };
+
+  const handleAddColumnAfter = () => {
+    const { targetElement } = tableContextMenu;
+    const cellIndex = targetElement.cellIndex;
+    const table = targetElement.closest("table");
+    for (let i = 0; i < table.rows.length; i++) {
+      const newRow = table.rows[i];
+      const newCell = newRow.insertCell(cellIndex + 1);
+      newCell.style.border = "1px solid #ddd";
+      newCell.style.padding = "5px";
+      newCell.style.minHeight = "20px";
+      newCell.style.height = "10px";
+    }
+    setTableContextMenu(null);
+  };
+
+  const handleDeleteRow = () => {
+    const { targetElement } = tableContextMenu;
+    const rowIndex = targetElement.parentNode.rowIndex;
+    targetElement.closest("table").deleteRow(rowIndex);
+    setTableContextMenu(null);
+  };
+
+  const handleDeleteColumn = () => {
+    const { targetElement } = tableContextMenu;
+    const cellIndex = targetElement.cellIndex;
+    const table = targetElement.closest("table");
+    for (let i = 0; i < table.rows.length; i++) {
+      table.rows[i].deleteCell(cellIndex);
+    }
+    setTableContextMenu(null);
+  };
+
+  const handleDeleteTable = () => {
+    const { targetElement } = tableContextMenu;
+    targetElement.closest("table").remove();
+    setTableContextMenu(null);
+  };
+  return (
+    <div className="text-editor-container">
+      <div className="editor-head">
+        <div className="editor-options r1">
+          <div className="editor-options-group">
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("undo", false, "");
+                }}
+                disabled={!document.queryCommandEnabled("undo")}
+              >
+                <img src="/images/TextEditor/left-arrow.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("redo", false, "");
+                }}
+                disabled={!document.queryCommandEnabled("redo")}
+              >
+                <img src="/images/TextEditor/right-arrow.png" alt="" />
+              </button>
+            </div>
+          </div>
+          <div className="editor-options-group last">
+            {/* <div className="editor-option-item">
+              <button>
+                <img src="/images/TextEditor/d-border.png" alt="" />
+              </button>
+            </div> */}
+            <div className="editor-option-item">
+              <button onClick={addLink}>
+                <img src="/images/TextEditor/link.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  imageRef.current.click();
+                }}
+              >
+                <img src="/images/TextEditor/image.png" alt="" />
+              </button>
+              <input
+                ref={imageRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  handleInsertImage(e);
+                }}
+              />
+            </div>
+            <div className="editor-option-item">
+              <button onClick={handleInsertTable}>
+                <img src="/images/TextEditor/table.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button onClick={toggleQuotationItalic}>
+                <img src="/images/TextEditor/quotes.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button onClick={handleInsertVideo}>
+                <img src="/images/TextEditor/vid.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button onClick={addCodeBlock}>
+                <img src="/images/TextEditor/snipet.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  addDivider(true);
+                }}
+              >
+                <img src="/images/TextEditor/page-b.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  addDivider(false);
+                }}
+              >
+                <img src="/images/TextEditor/bar.png" alt="" />
+              </button>
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => setIsHtmlMode(!isHtmlMode)}
+          >
+            HTML
+          </button>
+        </div>
+        <div className="editor-options r2">
+          <div className="editor-options-group">
+            <div className="editor-option-item">
+              <select
+                value={currentHtmlTag}
+                onChange={(e) => {
+                  setCurrentHtmlTag(e.target.value);
+                }}
+                className="js-example-basic-single"
+                name="state"
+                disabled={codeBlock}
+              >
+                <option style={{ fontSize: "34px" }} value="h1">
+                  Heading 1
+                </option>
+                <option style={{ fontSize: "30px" }} value="h2">
+                  Heading 2
+                </option>
+                <option style={{ fontSize: "24px" }} value="h3">
+                  Heading 3
+                </option>
+                <option style={{ fontSize: "20px" }} value="h4">
+                  Heading 4
+                </option>
+                <option style={{ fontSize: "18px" }} value="h5">
+                  Heading 5
+                </option>
+                <option style={{ fontSize: "16px" }} value="h6">
+                  Heading 6
+                </option>
+                <option style={{ fontSize: "20px" }} value="p">
+                  Paragraph
+                </option>
+              </select>
+            </div>
+          </div>
+          <div className="editor-options-group">
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("bold", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/bold.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("italic", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/italic.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("underline", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/underline.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("strikeThrough", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/st-through.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item zs2">
+              <select
+                id="mySelect"
+                value={fontSize}
+                onChange={handleFontSizeChange}
+              >
+                {fontSizes.map((size, index) => (
+                  <option value={size} key={index}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="editor-options-group">
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("justifyLeft", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/align.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("justifyCenter", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/align.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("justifyRight", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/align.png" alt="" />
+              </button>
+            </div>
+          </div>
+          <div className="editor-options-group last">
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("insertUnorderedList", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/dics-li.png" alt="" />
+              </button>
+            </div>
+            <div className="editor-option-item">
+              <button
+                onClick={(e) => {
+                  document.execCommand("insertOrderedList", false, "");
+                }}
+              >
+                <img src="/images/TextEditor/num-li.png" alt="" />
+              </button>
+            </div>
+            {/* <div className="editor-option-item">
+              <button >
+                <img src="/assets/images/TextEditor/check-li.png" alt="" />
+              </button>
+            </div> */}
+          </div>
+        </div>
+      </div>
+      <div className="editor-body">
+        {/* <textarea
+          className="form-control"
+          id="exampleFormControlTextarea1"
+        ></textarea> */}
+        {isHtmlMode ? (
+          <textarea
+            placeholder="Enter HTML code here..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+        ) : (
+          <div
+            className="text-editor__content"
+            ref={contentRef}
+            contentEditable="true"
+            placeholder="Enter your text here..."
+            onInput={(e) => {
+              setContent(e.target.innerHTML);
+            }}
+            onContextMenu={handleContextMenu}
+            onKeyDown={handleKeyDown}
+          />
+        )}
+      </div>
+      {tableContextMenu && (
+        <div
+          className="table-context-menu"
+          style={{
+            top: tableContextMenu.y,
+            left: tableContextMenu.x,
+          }}
+        >
+          <button onClick={handleAddRowAbove}>Add Row Above</button>
+          <button onClick={handleAddRowBelow}>Add Row Below</button>
+          <button onClick={handleAddColumnBefore}>Add Column Before</button>
+          <button onClick={handleAddColumnAfter}>Add Column After</button>
+          <button onClick={handleDeleteRow}>Delete Row</button>
+          <button onClick={handleDeleteColumn}>Delete Column</button>
+          <button onClick={handleDeleteTable}>Delete Table</button>
+        </div>
+      )}
+      <div className="editor-footer">
+        <p>
+          Words: <span>{wordCount}</span>
+        </p>
+        <p>
+          Characters: <span>{charCount}</span>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default TextEditor;
+// css editor
+
+.text-editor__content ul{
+
+    list-style: inherit;
+    padding: revert;
+    margin: auto;
+  }
+
+  .text-editor__content ol{
+
+    list-style: decimal;
+    padding: revert;
+    margin: auto;
+  }
+  
+  .text-editor__content h1,h2,h3,h4,h5,h6,p{
+    font-size: revert;
+  }
+
+
+
+.text-editor {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .text-editor__content {
+    min-height: 200px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    outline: none;
+
+   
+  }
+  
+  .text-editor__toolbar {
+    display: flex;
+    
+  }
+  
+  .text-editor__toolbar button {
+    margin-right: 5px;
+    padding: 5px 10px;
+    border: none;
+    background-color: #eee;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  
+  .text-editor {
+    width: 95%;
+    padding: 20px;
+  }
+  
+  .text-editor__toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+
+/* @font-face {
+    font-family: arial;
+    src: url(/assets/fonts/arial.ttf);
+  }
+  * {
+    font-family: arial;
+  } */
+  .editor-options button.btn.btn-primary {
+    position: absolute;
+    right: 6px;
+    font-size: 14px;
+    min-width: 100px;
+    border-radius: 4px;
+    top: 4px;
+    padding: 3px 0px;
+    cursor: pointer;
+  }
+  .r1 {
+    padding-right: 115px;
+  }
+  .editor-head {
+    border-bottom: 1px solid #D1D6E2;
+    padding-bottom: 5px;
+  }
+  .text-editor-container {
+    /* max-width: 1062px; */
+    max-width: 100%;
+    margin: auto;
+    border: 1px solid #D1D6E2;
+    border-radius: 4px;
+    /* margin-top: 10%; */
+  }
+  .editor-options {
+    display: flex;
+    align-items: center;
+    padding:4px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .editor-options-group {
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #CCCED1;
+    margin-right: 8px;
+    padding-right: 4px;
+  }
+  .last{
+    border: none;
+  }
+  .editor-option-item button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 7px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .editor-option-item button:hover{
+    background: #00000024;
+    border-radius: 6px;
+    transition: all 0.3s;
+  }
+  .form-select:focus {
+    border: none;
+    box-shadow: none;
+  }
+  .text-st {
+    min-width: 133px;
+    margin-right: 9px;
+  }
+  .form-select {
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: #001234;
+  }
+  .editor-body textarea {
+    border: none;
+    resize: none;
+    min-height: 200px;
+    width: 100%;
+    padding: 5px;
+   
+  }
+  .editor-body textarea:focus {
+    border: none;
+    box-shadow: none;
+    /* background-color: #000; */
+    outline: none;
+    
+  }
+  .editor-footer p {
+    margin-bottom: 0px;
+    color: #001234;
+    font-size: 13px;
+    margin-right: 12px;
+  }
+  .editor-footer {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid #D1D6E2;
+    padding: 6px 10px;
+    justify-content: flex-end;
+  }
+  span.select2-search.select2-search--dropdown {
+    display: none;
+  }
+  span.select2-results li {
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+  span#select2-state-85-container {
+    font-size: 13px;
+  }
+  .select2-selection__rendered {
+    font-size: 13px;
+  }
+  .select2-container {
+    min-width: 130px !important;
+  }
+  .zs2 .select2-container {
+    min-width: max-content !important;
+  }
+  .select2-results ul {
+    max-height: max-content !important;
+  }
+  span.select2-selection__arrow b {
+    border: none !important;
+  }
+  span.select2-selection__arrow {
+    background-image: url(/src/assets/Images/TextEditor/max-arrow.png);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: 4px -1px;
+  }
+  .select2-container--open span.select2-selection__arrow {
+    transform: rotatex(180deg);
+  }
+  span.select2-selection.select2-selection--single {
+    border: none;
+  }
+  span.select2-dropdown.select2-dropdown--below {
+    border: none;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+  }
+  .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color: #2125292b;
+    color: #000;
+  }
+  li#select2-mySelect-result-jez4-1 {
+    display: none !important;
+  }
+  
+  .editor-option-item button:disabled {
+    color: aliceblue;
+    background: #f4f4f4;
+    border-radius: 6px;
+    cursor: default;
+  }
