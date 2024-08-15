@@ -7,7 +7,7 @@ const Api = axios.create({
   },
 });
 
-const FormDataAPI = axios.create({
+const FormDataAPI = axios.create({ // we use this when we have to send data other than text e.g file
   baseURL: import.meta.env.VITE_BASE_URL,
   headers: {
     "Content-Type": "multipart/form-data",
