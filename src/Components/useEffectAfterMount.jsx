@@ -15,3 +15,9 @@ const useEffectAfterMount = (fn, deps) => {
 }
 
 export default useEffectAfterMount
+
+// how to use it
+
+useEffectAfterMount(()=>{
+    fn
+},[])
