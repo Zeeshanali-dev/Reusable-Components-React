@@ -1,0 +1,11 @@
+export const TextExtract = (htmlString) => {
+  if (!htmlString) return ""; // Handle empty input
+
+  const parser = new DOMParser();
+  const parsedDocument = parser.parseFromString(htmlString, "text/html");
+
+  // Extract the text content from the body, or any other specific element if needed
+  const extractedText = parsedDocument.body.textContent || "";
+
+  return extractedText.trim(); // Trim to remove any leading/trailing whitespace
+};
