@@ -1,0 +1,45 @@
+<div class="mb-6 custom-checkbox">
+                                    <input type="checkbox" id="logout" />
+                                    <label for="logout" class="text-sm text-[#696969] poppins-font">Logout from all devices</label>
+                                </div>
+
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.custom-checkbox input[type="checkbox"] {
+  /* Hide the default checkbox */
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #413DFA;
+  /* Purple border */
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+}
+
+.custom-checkbox input[type="checkbox"]:checked {
+  background-color: white;
+  /* border: 2px solid #413DFA; */
+  /* Purple background when checked */
+}
+
+.custom-checkbox input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: solid #413DFA;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.custom-checkbox label {
+  margin-left: 8px;
+  cursor: pointer;
+}
