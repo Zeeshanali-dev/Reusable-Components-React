@@ -1,0 +1,97 @@
+import React, { useState } from "react";
+import AuthLayout from "../../Components/Auth/AuthLayout";
+
+const OTP = () => {
+  const [error, setError] = useState(true);
+  const [otp, setOtp] = useState(new Array(4).fill(""));
+
+  const handleInput = (e, index) => {
+    const { value } = e.target;
+    if (isNaN(value)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    if (value && e.target.nextElementSibling) {
+      e.target.nextElementSibling.focus();
+    }
+  };
+
+  const handleKeyDown = (e, index) => {
+    if (e.key === "Backspace") {
+      if (!otp[index] && e.target.previousElementSibling) {
+        e.target.previousElementSibling.focus();
+      }
+    }
+  };
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const sendOtp = otp.join("");
+    console.log(sendOtp);
+    setOtp(["", "", "", ""]);
+  };
+  const isButtonDisabled = otp.some((val) => val === "");
+  return (
+    <>
+     
+        <form onSubmit={handleSubmit}>
+          <div>
+            <div className="text-center mb-4 md:mb-[30px]">
+              <h2 className="pt-bold text-3xl md:text-[34px]">Enter OTP</h2>
+            </div>
+            <div className="flex flex-col items-center justify-center my-4 md:my-7">
+              <p className="max-w-[369px] text-[15px] md:text-lg text-center text-[#6F7985]">
+                We just sent an OTP on jhondeo@gmail.com please enter it here
+                2343
+              </p>
+              {error && (
+                <div>
+                  <p className="text-red-700 text-center text-sm mt-1">
+                    Wrong OTP !
+                  </p>
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="my-10 flex items-center justify-center gap-3">
+                {otp.map((data, index) => (
+                  <input
+                    key={index}
+                    type="text"
+                    maxLength="1"
+                    className={`border border-[#B9B9C4] h-[74px] w-[74px] rounded-[50%] pt-bold text-2xl outline-none text-center ${
+                      data ? "bg-[#256DB9] text-white" : "bg-[#f9f9f9]"
+                    }`}
+                    value={data}
+                    onInput={(e) => handleInput(e, index)}
+                    onKeyDown={(e) => handleKeyDown(e, index)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="my-5">
+                <p className="md:text-lg text-center">
+                  Not Yet Code
+                  <span className="text-[#307BC9]"> Resend Code</span>
+                </p>
+              </div>
+              <div className="">
+                <button
+                  className={`flex items-center w-full justify-center p-2 rounded-md  h-14 md:h-[70px] text-white pt-bold
+                   ${isButtonDisabled ? "bg-gray-300 " : "bg-custom-gradient"}`}
+                  disabled={isButtonDisabled}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      
+    </>
+  );
+};
+
+export default OTP;
