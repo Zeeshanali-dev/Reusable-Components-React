@@ -1,0 +1,96 @@
+<label htmlFor="file" className="pt-3 block">
+                  <input
+                    type="file"
+                    name=""
+                    id="file"
+                    hidden
+                    onChange={uploadFile}
+                    multiple
+                  />
+                  <div
+                    id="drop_zone"
+                    onDrop={(ev) => {
+                      // Prevent default behavior (Prevent file from being opened)
+                      ev.preventDefault();
+                      if (ev.dataTransfer.items) {
+                        let images = [];
+                        let files = [];
+                        // Use DataTransferItemList interface to access the file(s)
+                        [...ev.dataTransfer.items].forEach((item, i) => {
+                          // If dropped items aren't files, reject them
+                          if (item.kind === "file") {
+                            const file = item.getAsFile();
+                            const fileTypeRoutes = {
+                              "application/pdf": "pdf",
+                              "application/msword": "doc",
+                              "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                                "doc",
+                              "image/jpeg": "jpg",
+                              "image/jpg": "jpg",
+                              "image/png": "png",
+                              "image/webp": "webp",
+                            };
+                            const maxFileSize = 5 * 1024 * 1024;
+                            // Get the file type route path
+                            const fileTypeRoute = fileTypeRoutes[file.type];
+                            if (!fileTypeRoute) {
+                              toast.error(
+                                "Please select valid files: PDF, DOC, JPG, PNG, or WEBP",
+                                {
+                                  position: "top-right",
+                                }
+                              );
+                              return;
+                            }
+                            if (file.size > maxFileSize) {
+                              toast.error(
+                                `${file.name} exceeds the 5MB size limit`,
+                                {
+                                  position: "top-right",
+                                }
+                              );
+                              return;
+                            }
+                            if (
+                              fileTypeRoute === "pdf" ||
+                              fileTypeRoute === "doc"
+                            ) {
+                              files.push(file);
+                            } else if (
+                              [("jpg", "png", "webp")].includes(fileTypeRoute)
+                            ) {
+                              images.push(file);
+                            }
+                          }
+                        });
+ 
+                        setFiles(files);
+                        setImages(images);
+                        setIsDragging(false);
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      setIsDragging(true);
+                      e.preventDefault();
+                    }}
+                    onDragLeave={(e) => {
+                      setIsDragging(false);
+                      e.preventDefault();
+                    }}
+                    className={`${
+                      isDragging ? "bg-slate-100" : "bg-white"
+                    } w-full rounded-[5px] p-5 border border-primary border-dashed`}
+                  >
+                    <div className="flex flex-col justify-center items-center">
+                      <img src={upload} alt="" />
+                      <p className="text-sm pt-1 text-dark">
+                        Drag your file(s) or{" "}
+                        <span className="inter-semibold">browse</span>
+                      </p>
+ 
+                      <p className="text-sm pt-2 text-[#6D6D6D]">
+                        Max 25 MB files are allowed
+                      </p>
+                    </div>
+                  </div>
+                </label>
